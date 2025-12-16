@@ -1,26 +1,25 @@
-# Default values for devops-lab-app
+# Values para entorno Staging
 
-replicaCount: 3
+replicaCount: 1
 
 image:
   repository: docker.io/tekiroz/devops-lab
   tag: latest
   pullPolicy: Always
 
-nameOverride: ""
-fullnameOverride: ""
-
 service:
   type: ClusterIP
   port: 3000
 
 resources:
-  limits:
-    cpu: 70m
-    memory: 150Mi
   requests:
     cpu: 50m
     memory: 100Mi
 
 env:
-  BACKGROUND_COLOR: white
+  BACKGROUND_COLOR: blue
+
+namespace:
+  create: true
+  name: devops-lab-staging
+
