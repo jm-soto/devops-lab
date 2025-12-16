@@ -1,0 +1,17 @@
+{
+  "name": "devops-lab-app",
+  "version": "1.0.0",
+  "description": "Aplicación demostrativa para laboratorio DevOps",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": ["devops", "demo", "express"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "prom-client": "^15.1.0"
+  }
+}
+
