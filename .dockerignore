@@ -44,6 +44,10 @@ Dockerfile*
 docker-compose*.yml
 .dockerignore
 
+# Helm charts and CD configs (not needed in Docker image, but needed in repo)
+helm/
+cd/
+
 # Temporary files
 *.tmp
 *.temp

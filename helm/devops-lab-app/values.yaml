@@ -1,0 +1,31 @@
+# Default values for devops-lab-app
+
+replicaCount: 3
+
+image:
+  repository: docker.io/tekiroz/devops-lab
+  tag: latest
+  pullPolicy: Always
+
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 3000
+
+resources:
+  limits:
+    cpu: 100m
+    memory: 200Mi
+  requests:
+    cpu: 100m
+    memory: 200Mi
+
+env:
+  BACKGROUND_COLOR: white
+
+namespace:
+  create: true
+  name: devops-lab-pre
+
