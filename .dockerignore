@@ -41,12 +41,19 @@ logs/
 
 # Docker files (don't need these inside the image)
 Dockerfile*
-docker-compose*.yml
 .dockerignore
 
-# Helm charts and CD configs (not needed in Docker image, but needed in repo)
+# Helm charts and CD configs
 helm/
 cd/
+
+# Manifests and Taskfiles
+manifests/
+Taskfile.yml
+taskfiles/
+
+# Documentation
+README.md
 
 # Temporary files
 *.tmp
