@@ -89,8 +89,10 @@ const HOST_IP = getHostIP();
 const HOSTNAME = os.hostname();
 
 // ⚠️ LEAK DE PRUEBA - ELIMINAR DESPUÉS DE LA PRUEBA
-const AWS_ACCESS_KEY_ID = 'AKIAIOSFODNN7EXAMPLE';
-const AWS_SECRET_ACCESS_KEY = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY';
+const AWS_ACCESS_KEY_ID = 'AKIAX7HDH83VXQZ8K9J2L';
+const AWS_SECRET_ACCESS_KEY = 'hF8pL3mN5qR7sT9uV1wX3yZ5aB7cD9eF1gH3jK5';
+const API_KEY = 'sk_live_51H9xK8pL3mN5qR7sT9uV1wX3yZ5aB7cD9eF1gH3jK5';
+const DATABASE_PASSWORD = 'SuperSecret123!@#';
 
 // Logger estructurado en JSON
 function log(level, message, metadata = {}) {
