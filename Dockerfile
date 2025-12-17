@@ -21,4 +21,3 @@ USER node
 
 # Comando para iniciar la aplicación
 CMD ["npm", "start"]
-
