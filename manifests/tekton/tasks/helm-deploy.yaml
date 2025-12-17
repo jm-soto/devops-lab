@@ -47,7 +47,8 @@ spec:
               -n $(params.NAMESPACE) \
               --create-namespace \
               --set image.repository="$IMAGE_REPO" \
-              --set image.tag="$IMAGE_TAG"
+              --set image.tag="$IMAGE_TAG" \
+              --set env.APP_VERSION="$IMAGE_TAG"
           else
             echo "⚠️  No se proporcionó IMAGE_REFERENCE, usando valores por defecto del values file"
             helm upgrade --install $(params.RELEASE_NAME) $(params.CHART_PATH) \
