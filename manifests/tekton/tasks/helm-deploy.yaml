@@ -20,6 +20,10 @@ spec:
       type: string
       description: Path to Helm chart relative to workspace root
       default: helm/devops-lab-app
+    - name: IMAGE_REFERENCE
+      type: string
+      description: "Full image reference with tag (ej: docker.io/user/repo:v1.0.0)"
+      default: ""
   steps:
     - name: helm-upgrade-install
       image: alpine/helm:3.19
@@ -29,11 +33,16 @@ spec:
         - -c
         - |
           cd $(workspaces.source.path)
-          helm upgrade --install $(params.RELEASE_NAME) \
-            $(params.CHART_PATH) \
-            -f $(params.VALUES_FILE) \
-            -n $(params.NAMESPACE) \
-            --create-namespace
+          
+          HELM_CMD="helm upgrade --install $(params.RELEASE_NAME) $(params.CHART_PATH) -f $(params.VALUES_FILE) -n $(params.NAMESPACE) --create-namespace"
+          
+          if [ -n "$(params.IMAGE_REFERENCE)" ]; then
+            IMAGE_REPO=$(echo "$(params.IMAGE_REFERENCE)" | cut -d: -f1)
+            IMAGE_TAG=$(echo "$(params.IMAGE_REFERENCE)" | cut -d: -f2)
+            HELM_CMD="$HELM_CMD --set image.repository=$IMAGE_REPO --set image.tag=$IMAGE_TAG"
+          fi
+          
+          eval $HELM_CMD
   workspaces:
     - name: source
       description: Workspace containing the source code and Helm chart
