@@ -19,14 +19,14 @@ Aplicación demostrativa para laboratorio DevOps diseñada para ser simple, obse
 ## 📁 Estructura del Proyecto
 
 ```
-labs/
-├── app/
-│   ├── server.js          # Aplicación Express con métricas y logging
-│   └── package.json       # Dependencias (express, prom-client)
-├── Dockerfile             # Imagen de producción multi-stage
-├── Taskfile.yml          # Automatización de tareas
-├── .dockerignore         # Exclusiones para build
-├── .gitignore            # Exclusiones para Git
+devops-lab/
+├── app/                  # Código fuente de la aplicación Node.js
+├── cd/                   # Configuraciones de despliegue continuo
+├── helm/                 # Charts de Helm y dashboards de Grafana
+├── manifests/            # Manifiestos de Kubernetes (Tekton, cf-tunnel)
+├── taskfiles/            # Taskfiles modulares para automatización
+├── Dockerfile            # Imagen de producción
+├── Taskfile.yml          # Taskfile principal
 └── README.md             # Esta documentación
 ```
 
@@ -34,23 +34,46 @@ labs/
 
 ### Requisitos
 
-- **Docker** (requerido)
-- **[Task](https://taskfile.dev/)** (recomendado para automatización)
-- **[jq](https://stedolan.github.io/jq/)** (opcional, para análisis de logs JSON)
+#### Herramientas Requeridas
 
-### Instalación de Task
+- **[Docker](https://www.docker.com/)** - Para construir y ejecutar contenedores
+- **[kubectl](https://kubernetes.io/docs/tasks/tools/)** - Cliente de Kubernetes (requerido para CI/CD)
+- **[Helm](https://helm.sh/)** - Gestor de paquetes de Kubernetes (requerido para despliegues)
+- **[Git](https://git-scm.com/)** - Control de versiones
+
+#### Herramientas Recomendadas
+
+- **[Task](https://taskfile.dev/)** - Automatización de tareas (altamente recomendado)
+- **[Minikube](https://minikube.sigs.k8s.io/)** - Cluster de Kubernetes local para desarrollo y pruebas
+- **[jq](https://stedolan.github.io/jq/)** - Análisis de logs JSON (opcional)
+
+#### Requisitos de Infraestructura
+
+- **Cluster de Kubernetes** - Configurado y accesible via `kubectl` (puede ser local con Minikube o un cluster remoto)
+- **Registro de Docker** - Para almacenar imágenes de contenedor (Docker Hub, GitHub Container Registry, etc.)
+- **Acceso a GitHub** - Para webhooks y gestión de repositorios (tokens, SSH keys según configuración)
+
+### Instalación de Herramientas
+
+Para instalar las herramientas requeridas, sigue las instrucciones oficiales de cada proyecto:
+
+- **Docker**: [docs.docker.com/get-docker/](https://docs.docker.com/get-docker/)
+- **kubectl**: [kubernetes.io/docs/tasks/tools/](https://kubernetes.io/docs/tasks/tools/)
+- **Helm**: [helm.sh/docs/intro/install/](https://helm.sh/docs/intro/install/)
+- **Task**: [taskfile.dev/installation/](https://taskfile.dev/installation/)
+- **Minikube**: [minikube.sigs.k8s.io/docs/start/](https://minikube.sigs.k8s.io/docs/start/)
+
+> **Nota:** Minikube requiere un hipervisor (Docker, VirtualBox, Hyperkit, etc.). Si usas Docker Desktop, Minikube puede usar Docker como driver.
+
+#### Verificación de Instalación
 
 ```bash
-# macOS (Homebrew)
-brew install go-task
-
-# Linux (script de instalación)
-sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
-
-# Windows (Scoop)
-scoop install task
-
-# O descarga desde: https://github.com/go-task/task/releases
+# Verificar que todas las herramientas estén instaladas
+docker --version
+kubectl version --client
+helm version
+minikube version  # Si usas Minikube
+task --version    # Si usas Task
 ```
 
 ### Uso Básico
@@ -294,67 +317,40 @@ Además de las métricas personalizadas, se exponen métricas estándar:
 - `nodejs_gc_duration_seconds`: Duración de garbage collection
 - Y muchas más...
 
-### Queries de Prometheus Útiles
+### Dashboard de Grafana
 
-```promql
-# ========================================
-# GOLDEN SIGNALS
-# ========================================
+El proyecto incluye un dashboard de Grafana pre-configurado ubicado en `helm/grafana/devop-lab-app.json` que proporciona visualización completa de las métricas de la aplicación.
 
-# Latencia: P95 de tiempo de respuesta
-histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))
+#### Paneles Principales
 
-# Latencia: Promedio
-rate(http_request_duration_seconds_sum[5m]) / rate(http_request_duration_seconds_count[5m])
+El dashboard incluye los siguientes paneles:
 
-# Tráfico: Requests por segundo
-sum(rate(http_requests_total[5m]))
+1. **Request Rate (requests/sec)**: Tasa de peticiones por segundo por ruta y código de estado
+2. **Total Requests**: Total de peticiones en la última hora
+3. **Error Rate (5xx)**: Tasa de errores 5xx en tiempo real
+4. **Response Time Percentiles**: P50, P95, P99 de latencia agregada
+5. **Average Response Time**: Tiempo promedio de respuesta por ruta
+6. **Requests by Route**: Distribución de peticiones por ruta (bargauge)
+7. **Temporary Color Requests**: Peticiones que usaron colores temporales (barchart)
+8. **Color Info**: Tabla con información de colores configurados (hex values)
+9. **Version & Color History**: Tabla histórica mostrando versiones y colores únicos desplegados
 
-# Errores: Tasa de errores 5xx
-sum(rate(http_requests_total{status_code=~"5.."}[5m]))
+#### Características
 
-# Saturación: Uso de memoria
-process_resident_memory_bytes / 1024 / 1024
+- **Variable de namespace**: El dashboard incluye una variable `$namespace` para filtrar por namespace de Kubernetes
+- **Exclusión de `/metrics`**: Todas las métricas HTTP excluyen automáticamente el endpoint `/metrics` para evitar que el scraping de Prometheus afecte los gráficos
+- **Actualización automática**: El dashboard se actualiza cada 5 segundos
+- **Rango de tiempo**: Por defecto muestra los últimos 30 minutos
+- **Filtrado de duplicados**: El panel histórico agrupa por versión y color para mostrar valores únicos
 
-# ========================================
-# ANÁLISIS POR COLOR
-# ========================================
+#### Instalación
 
-# Peticiones por color base
-sum by (color) (rate(http_requests_total[5m]))
+Para importar el dashboard en Grafana:
 
-# Latencia promedio por color
-sum by (color) (rate(http_request_duration_seconds_sum[5m])) 
-/ 
-sum by (color) (rate(http_request_duration_seconds_count[5m]))
-
-# ========================================
-# COLORES TEMPORALES
-# ========================================
-
-# Uso de colores temporales por segundo
-sum by (color_requested) (rate(http_temporary_color_requests_total[5m]))
-
-# Qué colores temporales se piden más desde cada color base
-sum by (color_base, color_requested) (http_temporary_color_requests_total)
-
-# Porcentaje de peticiones con color temporal
-(
-  sum(rate(http_temporary_color_requests_total[5m])) 
-  / 
-  sum(rate(http_requests_total{route="/"}[5m]))
-) * 100
-
-# ========================================
-# VERSIÓN Y CONFIGURACIÓN
-# ========================================
-
-# Ver versión y color actual
-app_version_info
-
-# Ver configuración de color
-app_color_info
-```
+1. Abre Grafana y ve a **Dashboards** → **Import**
+2. Selecciona el archivo `helm/grafana/devop-lab-app.json` o importa el JSON directamente
+3. Asegúrate de que el datasource de Prometheus esté configurado con UID `prometheus`
+4. Selecciona el namespace deseado desde la variable dropdown en la parte superior del dashboard
 
 ### Logs Estructurados (JSON)
 
@@ -416,92 +412,6 @@ Todos los logs incluyen:
 - `error_stack`: Stack trace
 - `endpoint`: Endpoint donde ocurrió
 
-#### Ver y Analizar Logs
-
-```bash
-# Ver logs raw
-docker logs devops-lab-app
-
-# Ver logs formateados con jq
-docker logs devops-lab-app 2>&1 | jq -R 'fromjson? // .'
-
-# Ver solo el mensaje de cada log
-docker logs devops-lab-app 2>&1 | jq -r '.message'
-
-# Filtrar por nivel
-docker logs devops-lab-app 2>&1 | jq -R 'fromjson? // .' | jq 'select(.level == "ERROR")'
-docker logs devops-lab-app 2>&1 | jq -R 'fromjson? // .' | jq 'select(.level == "WARN")'
-
-# Solo requests HTTP
-docker logs devops-lab-app 2>&1 | jq -R 'fromjson? // .' | jq 'select(.message == "HTTP Request")'
-
-# Requests que tardaron más de 100ms
-docker logs devops-lab-app 2>&1 | jq -R 'fromjson? // .' | jq 'select(.duration_ms > 100)'
-
-# Requests con color temporal
-docker logs devops-lab-app 2>&1 | jq -R 'fromjson? // .' | jq 'select(.temporary_color)'
-
-# Ver IPs de clientes únicos
-docker logs devops-lab-app 2>&1 | jq -r '.client_ip' | sort -u
-
-# Contar requests por método
-docker logs devops-lab-app 2>&1 | jq -r 'select(.method) | .method' | sort | uniq -c
-
-# Calcular latencia promedio
-docker logs devops-lab-app 2>&1 | jq -r 'select(.duration_ms) | .duration_ms' | \
-  awk '{sum+=$1; n++} END {print "Promedio:", sum/n, "ms"}'
-```
-
-#### Integración con Plataformas de Logging
-
-##### Elasticsearch + Kibana (ELK)
-
-```bash
-# Filebeat configuration
-filebeat.inputs:
-  - type: docker
-    containers.ids: '*'
-    json.keys_under_root: true
-    json.add_error_key: true
-
-output.elasticsearch:
-  hosts: ["localhost:9200"]
-  index: "devops-lab-%{+yyyy.MM.dd}"
-```
-
-##### Grafana Loki + Promtail
-
-```yaml
-# promtail-config.yml
-scrape_configs:
-  - job_name: devops-lab-app
-    docker_sd_configs:
-      - host: unix:///var/run/docker.sock
-    relabel_configs:
-      - source_labels: ['__meta_docker_container_name']
-        regex: 'devops-lab-app'
-        action: keep
-    pipeline_stages:
-      - json:
-          expressions:
-            level: level
-            message: message
-            color: color
-            client_ip: client_ip
-      - labels:
-          level:
-          color:
-```
-
-##### Datadog
-
-```bash
-# Docker labels
-docker run -d \
-  -l com.datadoghq.ad.logs='[{"source":"nodejs","service":"devops-lab-app"}]' \
-  devops-lab-app
-```
-
 ## 🏗️ Arquitectura y Diseño
 
 ### Principios de Diseño
@@ -532,11 +442,27 @@ docker run -d \
 
 ### Stack Tecnológico
 
+**Aplicación:**
 - **Runtime**: Node.js LTS (Alpine Linux)
 - **Framework Web**: Express.js 4.x
 - **Métricas**: prom-client 15.x
 - **Containerización**: Docker multi-stage builds
+
+**CI/CD:**
+- **Pipeline**: Tekton Pipelines
+- **Triggers**: Tekton Triggers
 - **Automatización**: Task (Taskfile)
+- **Versionado**: Commitizen (Conventional Commits)
+
+**Despliegue:**
+- **Orquestación**: Kubernetes
+- **Gestión de paquetes**: Helm
+- **Ingress**: Cloudflare Tunnel
+
+**Observabilidad:**
+- **Métricas**: Prometheus
+- **Visualización**: Grafana
+- **Logs**: Estructurados en JSON
 
 ### Seguridad
 
@@ -549,138 +475,12 @@ docker run -d \
 
 ## 📚 Casos de Uso
 
-### 1. Demo de Rolling Updates
-
-Simula un rolling update cambiando versión y color:
-
-```bash
-# Terminal 1: Versión 1 (verde)
-BACKGROUND_COLOR=green APP_VERSION=v1.0.0 task run
-
-# Terminal 2: Versión 2 (azul) en otro puerto
-PORT=3001 BACKGROUND_COLOR=blue APP_VERSION=v2.0.0 task run
-
-# Verificar métricas de ambas versiones
-curl http://localhost:3000/metrics | grep app_version_info
-curl http://localhost:3001/metrics | grep app_version_info
-```
-
-### 2. Demo de Canary Deployment
-
-```bash
-# 90% del tráfico a versión estable (verde)
-docker run -d -p 3000:3000 -e BACKGROUND_COLOR=green devops-lab-app
-
-# 10% del tráfico a versión canary (rojo)
-docker run -d -p 3001:3000 -e BACKGROUND_COLOR=red devops-lab-app
-
-# Configurar balanceador (nginx, traefik, etc.) con split 90/10
-```
-
-### 3. Demo de Feature Flags Visuales
-
-Usa colores temporales para simular feature flags sin reiniciar:
-
-```bash
-# URL normal (feature desactivado)
-http://localhost:3000/
-
-# URL con feature flag (cambia UI temporalmente)
-http://localhost:3000/?color=blue
-
-# Métricas muestran cuánto se usa cada "feature"
-curl http://localhost:3000/metrics | grep http_temporary_color_requests_total
-```
-
-### 4. Labs de Observabilidad
-
-```bash
-# Generar carga
-for i in {1..100}; do curl http://localhost:3000/; done
-
-# Generar latencia
-for i in {1..20}; do curl "http://localhost:3000/slow?delay=1000"; done
-
-# Analizar métricas
-curl http://localhost:3000/metrics | grep http_request_duration
-
-# Analizar logs
-docker logs devops-lab-app 2>&1 | jq -r 'select(.duration_ms > 500)'
-```
-
-## 🐛 Troubleshooting
-
-### Puerto ya en uso
-
-```bash
-# Error: bind: address already in use
-# Solución: Usar otro puerto
-docker run --rm -p 8080:3000 -e PORT=3000 devops-lab-app
-```
-
-### Contenedor no arranca
-
-```bash
-# Ver logs de error
-docker logs devops-lab-app
-
-# Verificar que el puerto no está en uso
-lsof -i :3000
-# o
-netstat -tulpn | grep 3000
-
-# Verificar que la imagen existe
-docker images | grep devops-lab-app
-```
-
-### Color no cambia
-
-```bash
-# Verificar variable de entorno
-docker inspect devops-lab-app | jq '.[0].Config.Env'
-
-# Verificar logs de startup
-docker logs devops-lab-app | head -5
-
-# Si usaste color inválido, buscar warning
-docker logs devops-lab-app 2>&1 | jq 'select(.level == "WARN")'
-```
-
-### Métricas no aparecen
-
-```bash
-# Verificar que /metrics responde
-curl http://localhost:3000/metrics
-
-# Verificar que hay peticiones
-curl http://localhost:3000/
-curl http://localhost:3000/metrics | grep http_requests_total
-```
-
-### Logs no son JSON
-
-```bash
-# NPM warnings no son JSON, filtrar:
-docker logs devops-lab-app 2>&1 | grep '^{' | jq
-
-# O usar jq con manejo de errores:
-docker logs devops-lab-app 2>&1 | jq -R 'fromjson? // .'
-```
-
-### Limpiar todo y empezar de cero
-
-```bash
-# Con Task
-task clean
-
-# Con Docker directo
-docker stop devops-lab-app
-docker rm devops-lab-app
-docker rmi devops-lab-app
-
-# Limpiar todo Docker (¡cuidado!)
-docker system prune -a
-```
+- **Rolling Updates**: Simulación de actualizaciones graduales cambiando versión y color en diferentes instancias
+- **Canary Deployments**: Despliegue de versiones canary con distribución de tráfico controlada
+- **Feature Flags**: Uso de colores temporales via query parameters para simular feature flags sin reiniciar la aplicación
+- **Labs de Observabilidad**: Pruebas y experimentación con métricas, logs y dashboards de Prometheus/Grafana
+- **CI/CD**: Pipeline completo con Tekton para construcción, escaneo de seguridad y despliegue automatizado
+- **Versionado Semántico**: Automatización de versionado y creación de tags mediante Commitizen
 
 ## 🔧 Desarrollo
 
@@ -729,14 +529,34 @@ docker exec devops-lab-app ls -la
 
 ## 📖 Referencias
 
+**Aplicación:**
 - **Express.js**: https://expressjs.com/
 - **Prometheus**: https://prometheus.io/
 - **prom-client**: https://github.com/siimon/prom-client
 - **Docker**: https://docs.docker.com/
+
+**CI/CD y Despliegue:**
+- **Tekton**: https://tekton.dev/
+- **Kubernetes**: https://kubernetes.io/
+- **Helm**: https://helm.sh/
+- **Minikube**: https://minikube.sigs.k8s.io/
+
+**Herramientas:**
 - **Task**: https://taskfile.dev/
-- **jq**: https://stedolan.github.io/jq/
+- **Commitizen**: https://commitizen-tools.github.io/commitizen/
+- **Grafana**: https://grafana.com/
+- **Cloudflare Tunnel**: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/
+
+**Conceptos:**
 - **The Twelve-Factor App**: https://12factor.net/
-- **Cloud Native**: https://www.cncf.io/
+- **Cloud Native Computing Foundation**: https://www.cncf.io/
+
+**Información Útil:**
+- **Conventional Commits**: https://www.conventionalcommits.org/
+- **Semantic Versioning**: https://semver.org/
+- **Commitizen**: https://commitizen-tools.github.io/commitizen/
+- **PromQL**: https://prometheus.io/docs/prometheus/latest/querying/basics/
+- **Kubernetes Best Practices**: https://kubernetes.io/docs/concepts/configuration/overview/
 
 ## 📄 Licencia
 
