@@ -8,10 +8,12 @@ const ALLOWED_COLORS = {
   'red': '#ff0000', // #ff0000',
   'blue': '#0000ff',
   'white': '#ffffff',
+  'yellow': '#ffff00',
   'verde': '#00ff00',    // alias en español
   'rojo': '#ff0000',     // alias en español
   'azul': '#0000ff',     // alias en español
-  'blanco': '#ffffff'    // alias en español
+  'blanco': '#ffffff',   // alias en español
+  'amarillo': '#ffff00'  // alias en español
 };
 
 // Función para validar y normalizar color
@@ -35,7 +37,7 @@ function validateAndNormalizeColor(color) {
   
   // Color no permitido - usar blanco y loggear warning
   // Usar console.warn directamente aquí porque logger aún no está definido
-  const allowedColors = Object.keys(ALLOWED_COLORS).filter(k => !['verde', 'rojo', 'azul', 'blanco'].includes(k));
+  const allowedColors = Object.keys(ALLOWED_COLORS).filter(k => !['verde', 'rojo', 'azul', 'blanco', 'amarillo'].includes(k));
   console.log(JSON.stringify({
     timestamp: new Date().toISOString(),
     level: 'WARN',
@@ -55,7 +57,8 @@ function getColorName(hexColor) {
     '#00ff00': 'green',
     '#ff0000': 'red',
     '#0000ff': 'blue',
-    '#ffffff': 'white'
+    '#ffffff': 'white',
+    '#ffff00': 'yellow'
   };
   return colorMap[hexColor] || 'unknown';
 }
