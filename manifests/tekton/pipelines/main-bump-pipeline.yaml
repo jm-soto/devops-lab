@@ -1,0 +1,42 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: main-bump-pipeline
+  namespace: devops-lab-cicd
+spec:
+  params:
+    - name: repo-url
+      type: string
+    - name: git-revision
+      type: string
+  workspaces:
+    - name: source
+  tasks:
+    - name: fetch-source
+      taskRef:
+        name: git-clone
+      workspaces:
+        - name: output
+          workspace: source
+      params:
+        - name: url
+          value: $(params.repo-url)
+        - name: revision
+          value: $(params.git-revision)
+        - name: deleteExisting
+          value: "true"
+    
+    - name: bump-version
+      runAfter:
+        - fetch-source
+      taskRef:
+        name: commitizen-bump
+      workspaces:
+        - name: source
+          workspace: source
+      params:
+        - name: REPO_URL
+          value: $(params.repo-url)
+        - name: GIT_REVISION
+          value: $(params.git-revision)
+

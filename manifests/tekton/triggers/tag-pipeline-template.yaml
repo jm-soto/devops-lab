@@ -1,0 +1,50 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: tag-pipeline-template
+  namespace: devops-lab-cicd
+spec:
+  params:
+    - name: git-repository-url
+    - name: git-tag
+    - name: git-tag-name
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1
+      kind: PipelineRun
+      metadata:
+        generateName: clone-build-push-tag-
+        labels:
+          tekton.dev/pipeline: clone-build-push
+          event: tag
+      spec:
+        pipelineRef:
+          name: clone-build-push
+        taskRunSpecs:
+          - pipelineTaskName: deploy-staging
+            serviceAccountName: tekton-cicd-sa
+          - pipelineTaskName: deploy-pro
+            serviceAccountName: tekton-cicd-sa
+        workspaces:
+          - name: shared-data
+            volumeClaimTemplate:
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 1Gi
+          - name: docker-credentials
+            secret:
+              secretName: docker-credentials
+        params:
+          - name: repo-url
+            value: $(tt.params.git-repository-url)
+          - name: git-revision
+            value: $(tt.params.git-tag-name)
+          - name: image-reference
+            value: docker.io/tekiroz/devops-lab:$(tt.params.git-tag-name)
+          - name: release-name
+            value: devops-lab-app
+          - name: helm-namespace
+            value: devops-lab-staging
+

@@ -45,9 +45,11 @@ tasks:
       - kubectl apply -f manifests/tekton/tasks/github-pr-status.yaml -n devops-lab-cicd
       - kubectl apply -f manifests/tekton/tasks/github-pr-status-update-final.yaml -n devops-lab-cicd
       - kubectl apply -f manifests/tekton/tasks/github-pr-comment.yaml -n devops-lab-cicd
+      - kubectl apply -f manifests/tekton/tasks/commitizen-bump.yaml -n devops-lab-cicd
       - echo "Instalando pipelines..."
       - kubectl apply -f manifests/tekton/pipelines/devops-app-pipeline.yaml -n devops-lab-cicd
       - kubectl apply -f manifests/tekton/pipelines/pr-security-pipeline.yaml -n devops-lab-cicd
+      - kubectl apply -f manifests/tekton/pipelines/main-bump-pipeline.yaml -n devops-lab-cicd
       - echo "Instalando triggers..."
       - kubectl apply -f manifests/tekton/triggers/ -n devops-lab-cicd
       - |
@@ -82,6 +84,17 @@ tasks:
             --from-literal=token="${GHTOKEN}" \
             --namespace=devops-lab-cicd
           echo "✅ Secret de GitHub token creado"
+        fi
+      - |
+        if [ ! -f ~/.ssh/id_rsa_tekton ]; then
+          echo "⚠️  Advertencia: No se encuentra ~/.ssh/id_rsa_tekton"
+        else
+          echo "Creando secreto de GitHub SSH key..."
+          kubectl delete secret github-ssh-key --namespace=devops-lab-cicd --ignore-not-found=true
+          kubectl create secret generic github-ssh-key \
+            --from-file=ssh-privatekey=$HOME/.ssh/id_rsa_tekton \
+            --namespace=devops-lab-cicd
+          echo "✅ Secret de GitHub SSH key creado"
         fi
       - echo "✓ Entorno configurado en namespace devops-lab-cicd"
 

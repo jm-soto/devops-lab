@@ -1,0 +1,93 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: commitizen-bump
+  namespace: devops-lab-cicd
+spec:
+  params:
+    - name: REPO_URL
+      type: string
+    - name: GIT_REVISION
+      type: string
+    - name: BRANCH
+      default: "main"
+      type: string
+  workspaces:
+    - name: source
+  steps:
+    - name: checkout-main
+      image: alpine/git:latest
+      script: |
+        #!/bin/sh
+        set -e
+        mkdir -p ~/.ssh
+        echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan github.com >> ~/.ssh/known_hosts
+        git config --global --add safe.directory $(workspaces.source.path)
+        cd $(workspaces.source.path)
+        REPO_PATH=$(echo "$(params.REPO_URL)" | sed -E 's|https?://github.com/||' | sed 's|\.git$||')
+        git remote set-url origin "git@github.com:$REPO_PATH.git"
+        git config user.name "Tekton CI"
+        git config user.email "tekton@devops-lab.local"
+        git fetch origin
+        git checkout $(params.BRANCH)
+        git reset --hard origin/$(params.BRANCH)
+      env:
+        - name: SSH_PRIVATE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: github-ssh-key
+              key: ssh-privatekey
+    
+    - name: commitizen-bump
+      image: commitizen/commitizen:latest
+      script: |
+        #!/bin/sh
+        set -e
+        apk add --no-cache openssh git
+        mkdir -p ~/.ssh
+        echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan github.com >> ~/.ssh/known_hosts
+        git config --global --add safe.directory $(workspaces.source.path)
+        cd $(workspaces.source.path)
+        REPO_PATH=$(echo "$(params.REPO_URL)" | sed -E 's|https?://github.com/||' | sed 's|\.git$||')
+        git remote set-url origin "git@github.com:$REPO_PATH.git"
+        git config user.name "Tekton CI"
+        git config user.email "tekton@devops-lab.local"
+        echo "📥 Fetching tags and commits from remote..."
+        git fetch --tags
+        git fetch origin $(params.BRANCH)
+        echo "🔄 Ejecutando commitizen bump con changelog..."
+        cz bump --yes --changelog || EXIT_CODE=$?
+        if [ "${EXIT_CODE:-0}" -eq 2 ]; then
+          echo "⚠️  No hay commits elegibles para bump"
+          exit 0
+        fi
+        if [ "${EXIT_CODE:-0}" -ne 0 ]; then
+          echo "❌ Error en cz bump"
+          exit ${EXIT_CODE}
+        fi
+        echo "📤 Haciendo push de commits y tags..."
+        git push origin $(params.BRANCH)
+        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+        if [ -n "$LATEST_TAG" ]; then
+          git push origin "$LATEST_TAG" || {
+            if git ls-remote --tags origin | grep -q "refs/tags/$LATEST_TAG$"; then
+              echo "⚠️  El tag $LATEST_TAG ya existe en el remoto"
+            else
+              echo "❌ Error al hacer push del tag"
+              exit 1
+            fi
+          }
+        fi
+        echo "✅ Commitizen bump completado correctamente"
+      env:
+        - name: SSH_PRIVATE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: github-ssh-key
+              key: ssh-privatekey
+    
+

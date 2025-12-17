@@ -29,4 +29,57 @@ spec:
         - ref: github-pr-binding
       template:
         ref: pr-pipeline-template
+    
+    - name: github-main-push-trigger
+      interceptors:
+        - ref:
+            name: "github"
+          params:
+            - name: "secretRef"
+              value:
+                secretName: github-webhook-secret
+                secretKey: secret
+            - name: "eventTypes"
+              value: ["push"]
+        - ref:
+            name: "cel"
+          params:
+            - name: "filter"
+              value: >
+                body.ref == 'refs/heads/main' && 
+                body.created == false && 
+                body.deleted == false &&
+                body.head_commit.author.name != 'Tekton CI'
+      bindings:
+        - ref: github-main-push-binding
+      template:
+        ref: main-bump-template
+    
+    - name: github-tag-create-trigger
+      interceptors:
+        - ref:
+            name: "github"
+          params:
+            - name: "secretRef"
+              value:
+                secretName: github-webhook-secret
+                secretKey: secret
+            - name: "eventTypes"
+              value: ["create"]
+        - ref:
+            name: "cel"
+          params:
+            - name: "filter"
+              value: >
+                body.ref_type == 'tag'
+            - name: "overlays"
+              value:
+                - key: tag_name
+                  expression: "body.ref.replace('refs/tags/', '')"
+      bindings:
+        - ref: github-tag-binding
+        - name: git-tag-name
+          value: $(extensions.tag_name)
+      template:
+        ref: tag-pipeline-template
 
