@@ -34,18 +34,22 @@ spec:
         - |
           cd $(workspaces.source.path)
           
+          echo "🔍 IMAGE_REFERENCE recibido: $(params.IMAGE_REFERENCE)"
+          
           if [ -n "$(params.IMAGE_REFERENCE)" ]; then
             IMAGE_REF="$(params.IMAGE_REFERENCE)"
-            IMAGE_REPO=$(echo "$IMAGE_REF" | cut -d: -f1)
-            IMAGE_TAG=$(echo "$IMAGE_REF" | cut -d: -f2)
-            echo "📦 Configurando imagen: repository=$IMAGE_REPO, tag=$IMAGE_TAG"
+            IMAGE_REPO=$(echo "$IMAGE_REF" | sed 's/:.*$//')
+            IMAGE_TAG=$(echo "$IMAGE_REF" | sed 's/^.*://')
+            echo "📦 Extrayendo: repository='$IMAGE_REPO', tag='$IMAGE_TAG'"
+            
             helm upgrade --install $(params.RELEASE_NAME) $(params.CHART_PATH) \
               -f $(params.VALUES_FILE) \
               -n $(params.NAMESPACE) \
               --create-namespace \
-              --set image.repository=$IMAGE_REPO \
-              --set image.tag=$IMAGE_TAG
+              --set image.repository="$IMAGE_REPO" \
+              --set image.tag="$IMAGE_TAG"
           else
+            echo "⚠️  No se proporcionó IMAGE_REFERENCE, usando valores por defecto del values file"
             helm upgrade --install $(params.RELEASE_NAME) $(params.CHART_PATH) \
               -f $(params.VALUES_FILE) \
               -n $(params.NAMESPACE) \
