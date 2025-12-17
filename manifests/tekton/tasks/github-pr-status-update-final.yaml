@@ -1,0 +1,222 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: github-pr-status-update-final
+  namespace: devops-lab-cicd
+spec:
+  description: |
+    Actualiza el estado final del PR en GitHub basándose en el resultado del pipeline
+  params:
+    - name: REPO_URL
+      description: "URL del repositorio (ej: https://github.com/owner/repo.git)"
+      type: string
+    - name: GIT_SHA
+      description: SHA del commit
+      type: string
+    - name: TARGET_URL
+      description: URL del pipeline (opcional)
+      type: string
+      default: ""
+    - name: PR_NUMBER
+      description: Número del Pull Request (para enviar comentario)
+      type: string
+      default: ""
+  workspaces:
+    - name: source
+      description: Workspace que contiene el código y reportes
+      optional: true
+  steps:
+    - name: update-final-status
+      image: curlimages/curl:latest
+      env:
+        - name: GITHUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: github-token
+              key: token
+        - name: REPO_URL
+          value: $(params.REPO_URL)
+        - name: GIT_SHA
+          value: $(params.GIT_SHA)
+        - name: TARGET_URL
+          value: $(params.TARGET_URL)
+      script: |
+        #!/bin/sh
+        set -e
+        
+        REPO_URL=$(params.REPO_URL)
+        GIT_SHA=$(params.GIT_SHA)
+        TARGET_URL=$(params.TARGET_URL)
+        PR_NUMBER=$(params.PR_NUMBER)
+        
+        # Extraer owner y repo de la URL
+        REPO_PATH=$(echo "$REPO_URL" | sed -E 's|https?://github.com/||' | sed 's|\.git$||')
+        
+        if [ -z "$REPO_PATH" ]; then
+          echo "❌ Error: No se pudo extraer owner/repo de la URL: $REPO_URL"
+          exit 1
+        fi
+        
+        # Determinar el estado basado en si hay leaks o no
+        # Las finally tasks siempre se ejecutan, incluso si el pipeline falla
+        # Verificamos el reporte de gitleaks para determinar el estado
+        
+        STATE="success"
+        DESCRIPTION="Pipeline completado exitosamente. Sin leaks detectados."
+        CONTEXT="tekton/pr-security-pipeline"
+        
+        # Verificar si existe el reporte de gitleaks y si contiene leaks
+        if [ -d "$(workspaces.source.path)" ]; then
+          REPORT_FILE="$(workspaces.source.path)/gitleaks-report.json"
+          if [ -f "$REPORT_FILE" ]; then
+            # Leer el contenido del reporte
+            REPORT_CONTENT=$(cat "$REPORT_FILE" 2>/dev/null || echo "")
+            
+            # Verificar si el reporte está vacío o es un array vacío (no hay leaks)
+            if [ -z "$REPORT_CONTENT" ] || [ "$REPORT_CONTENT" = "[]" ] || [ "$REPORT_CONTENT" = "null" ]; then
+              echo "📄 Reporte de gitleaks está vacío (no se encontraron leaks)"
+            else
+              # El reporte tiene contenido, verificar si hay leaks
+              # Gitleaks puede usar diferentes formatos: puede ser un array de objetos o un objeto con un campo
+              # Buscamos indicadores de leaks: "finding", "match", "Secret", "Description", etc.
+              
+              # Verificar si es un array con elementos (más de 2 caracteres después de quitar espacios)
+              REPORT_TRIM=$(echo "$REPORT_CONTENT" | tr -d '[:space:]')
+              
+              # Si tiene más contenido que solo "[]", probablemente hay leaks
+              if [ "$REPORT_TRIM" != "[]" ] && [ ${#REPORT_TRIM} -gt 2 ]; then
+                # Contar diferentes indicadores de leaks
+                FINDINGS=$(echo "$REPORT_CONTENT" | grep -oE '"(finding|match|Secret|Description|RuleID)"' | wc -l || echo "0")
+                if [ "$FINDINGS" -gt 0 ]; then
+                  STATE="failure"
+                  DESCRIPTION="Se encontraron leaks en el código. No se puede hacer merge."
+                  echo "⚠️  Se encontraron leaks en el código (reporte tiene $FINDINGS indicadores)"
+                fi
+              fi
+            fi
+          else
+            # Si no existe el reporte, puede ser que scan-secrets falló antes de generarlo
+            # o que se generó en otra ubicación. Como scan-secrets falló (según el dashboard),
+            # asumimos que hay leaks
+            STATE="failure"
+            DESCRIPTION="Se encontraron leaks en el código. No se puede hacer merge."
+            echo "⚠️  No se encontró el reporte de gitleaks (scan-secrets falló)"
+          fi
+        else
+          # Si no tenemos acceso al workspace, asumimos success por defecto
+          echo "⚠️  No se tiene acceso al workspace para verificar el reporte"
+        fi
+        
+        # Verificar si alguna task falló revisando las condiciones del PipelineRun
+        # Como no tenemos acceso directo, asumimos que si llegamos aquí y el pipeline
+        # completó exitosamente (sin errores en scan-secrets), fue exitoso
+        # Si scan-secrets falló, el pipeline habría fallado y finalmente llegamos aquí
+        
+        echo "🔔 Actualizando estado final del PR en GitHub"
+        echo "Repository: $REPO_PATH"
+        echo "SHA: $GIT_SHA"
+        echo "State: $STATE"
+        echo "Description: $DESCRIPTION"
+        
+        # Preparar el JSON del body
+        if [ -n "$TARGET_URL" ] && [ "$TARGET_URL" != "" ]; then
+          BODY=$(cat <<EOF
+        {
+          "state": "$STATE",
+          "target_url": "$TARGET_URL",
+          "description": "$DESCRIPTION",
+          "context": "$CONTEXT"
+        }
+        EOF
+          )
+        else
+          BODY=$(cat <<EOF
+        {
+          "state": "$STATE",
+          "description": "$DESCRIPTION",
+          "context": "$CONTEXT"
+        }
+        EOF
+          )
+        fi
+        
+        # Hacer la petición a la API de GitHub
+        RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer $GITHUB_TOKEN" \
+          -H "X-GitHub-Api-Version: 2022-11-28" \
+          -H "Content-Type: application/json" \
+          -d "$BODY" \
+          "https://api.github.com/repos/$REPO_PATH/statuses/$GIT_SHA")
+        
+        HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+        RESPONSE_BODY=$(echo "$RESPONSE" | sed '$d')
+        
+        if [ "$HTTP_CODE" -eq 201 ]; then
+          echo "✅ Estado actualizado correctamente en GitHub"
+          echo "$RESPONSE_BODY"
+        else
+          echo "❌ Error al actualizar estado. HTTP Code: $HTTP_CODE"
+          echo "Response: $RESPONSE_BODY"
+          # No fallar aquí para no afectar el estado del pipeline
+        fi
+        
+        # Si hay leaks y tenemos el número de PR, enviar el reporte como comentario
+        if [ "$STATE" = "failure" ] && [ -n "$PR_NUMBER" ] && [ "$PR_NUMBER" != "" ]; then
+          echo ""
+          echo "💬 Preparando comentario con el reporte de leaks..."
+          
+          # Construir el comentario en markdown
+          COMMENT="## 🔒 Reporte de Gitleaks - Leaks Detectados\n\n"
+          COMMENT="${COMMENT}⚠️ **Se encontraron secretos o credenciales en el código.**\n\n"
+          COMMENT="${COMMENT}<details>\n<summary>Ver detalles del reporte</summary>\n\n"
+          COMMENT="${COMMENT}\`\`\`json\n"
+          
+          # Si existe el reporte, agregarlo al comentario (limitar a 10000 caracteres)
+          if [ -f "$REPORT_FILE" ] && [ -n "$REPORT_CONTENT" ]; then
+            REPORT_PREVIEW=$(echo "$REPORT_CONTENT" | head -c 8000)
+            COMMENT="${COMMENT}${REPORT_PREVIEW}\n"
+            if [ ${#REPORT_CONTENT} -gt 8000 ]; then
+              COMMENT="${COMMENT}... (reporte truncado)\n"
+            fi
+          else
+            COMMENT="${COMMENT}El escaneo de secretos falló. Por favor revisa los logs del pipeline.\n"
+          fi
+          
+          COMMENT="${COMMENT}\`\`\`\n</details>\n"
+          
+          # Crear archivo temporal con el comentario para evitar problemas de escape
+          COMMENT_FILE="/tmp/comment.txt"
+          echo "$COMMENT" > "$COMMENT_FILE"
+          
+          # Convertir el comentario a JSON de forma segura usando jq si está disponible
+          if command -v jq &> /dev/null; then
+            COMMENT_JSON=$(cat "$COMMENT_FILE" | jq -Rs .)
+            COMMENT_BODY="{\"body\": $COMMENT_JSON}"
+          else
+            # Fallback: escape básico (reemplazar comillas y saltos de línea)
+            COMMENT_ESCAPED=$(cat "$COMMENT_FILE" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g' | sed 's/\r/\\r/g')
+            COMMENT_BODY="{\"body\": \"$COMMENT_ESCAPED\"}"
+          fi
+          
+          # Enviar el comentario
+          COMMENT_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -H "Content-Type: application/json" \
+            -d "$COMMENT_BODY" \
+            "https://api.github.com/repos/$REPO_PATH/issues/$PR_NUMBER/comments")
+          
+          COMMENT_HTTP_CODE=$(echo "$COMMENT_RESPONSE" | tail -n1)
+          COMMENT_RESPONSE_BODY=$(echo "$COMMENT_RESPONSE" | sed '$d')
+          
+          if [ "$COMMENT_HTTP_CODE" -eq 201 ]; then
+            echo "✅ Comentario publicado en el PR #$PR_NUMBER"
+          else
+            echo "⚠️  Error al publicar comentario. HTTP Code: $COMMENT_HTTP_CODE"
+            echo "Response: $COMMENT_RESPONSE_BODY"
+            # No fallar aquí
+          fi
+        fi
+

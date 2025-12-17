@@ -1,0 +1,40 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: helm-deploy
+  namespace: devops-lab-cicd
+spec:
+  description: |
+    Deploys an application using Helm upgrade --install
+  params:
+    - name: RELEASE_NAME
+      type: string
+      description: Helm release name
+    - name: NAMESPACE
+      type: string
+      description: Namespace for Helm deployment
+    - name: VALUES_FILE
+      type: string
+      description: Path to values file relative to workspace root
+    - name: CHART_PATH
+      type: string
+      description: Path to Helm chart relative to workspace root
+      default: helm/devops-lab-app
+  steps:
+    - name: helm-upgrade-install
+      image: alpine/helm:3.19
+      command:
+        - /bin/sh
+      args:
+        - -c
+        - |
+          cd $(workspaces.source.path)
+          helm upgrade --install $(params.RELEASE_NAME) \
+            $(params.CHART_PATH) \
+            -f $(params.VALUES_FILE) \
+            -n $(params.NAMESPACE) \
+            --create-namespace
+  workspaces:
+    - name: source
+      description: Workspace containing the source code and Helm chart
+

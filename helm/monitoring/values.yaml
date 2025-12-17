@@ -1,0 +1,101 @@
+# Values para kube-prometheus-stack
+# Chart: prometheus-community/kube-prometheus-stack
+# Includes: Prometheus, Grafana, Node Exporter, Kube State Metrics
+# Disabled: Alertmanager, Blackbox Exporter
+
+# Prometheus configuration
+prometheus:
+  prometheusSpec:
+    retention: 30d
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 8Gi
+    
+    # Additional scrape configs for devops-lab-app
+    additionalScrapeConfigs:
+      - job_name: 'devops-lab-app-staging'
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names:
+                - devops-lab-staging
+        relabel_configs:
+          # Keep only services with app.kubernetes.io/name=devops-lab-app
+          - source_labels: [__meta_kubernetes_service_label_app_kubernetes_io_name]
+            action: keep
+            regex: devops-lab-app
+          # Keep only endpoints with port name 'http'
+          - source_labels: [__meta_kubernetes_endpoint_port_name]
+            action: keep
+            regex: http
+          # Set metrics path
+          - target_label: __metrics_path__
+            replacement: /metrics
+          # Add namespace label
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: kubernetes_namespace
+          # Add service name label
+          - source_labels: [__meta_kubernetes_service_name]
+            target_label: kubernetes_service_name
+          # Add pod name label
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: kubernetes_pod_name
+          # Copy all service labels
+          - action: labelmap
+            regex: __meta_kubernetes_service_label_(.+)
+      - job_name: 'devops-lab-app-pro'
+        kubernetes_sd_configs:
+          - role: endpoints
+            namespaces:
+              names:
+                - devops-lab-pro
+        relabel_configs:
+          # Keep only services with app.kubernetes.io/name=devops-lab-app
+          - source_labels: [__meta_kubernetes_service_label_app_kubernetes_io_name]
+            action: keep
+            regex: devops-lab-app
+          # Keep only endpoints with port name 'http'
+          - source_labels: [__meta_kubernetes_endpoint_port_name]
+            action: keep
+            regex: http
+          # Set metrics path
+          - target_label: __metrics_path__
+            replacement: /metrics
+          # Add namespace label
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: kubernetes_namespace
+          # Add service name label
+          - source_labels: [__meta_kubernetes_service_name]
+            target_label: kubernetes_service_name
+          # Add pod name label
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: kubernetes_pod_name
+          # Copy all service labels
+          - action: labelmap
+            regex: __meta_kubernetes_service_label_(.+)
+
+# Grafana configuration
+grafana:
+  enabled: true
+  adminUser: admin
+  adminPassword: admin
+  persistence:
+    enabled: false
+    size: 10Gi
+  service:
+    type: ClusterIP
+    port: 80
+  # Grafana datasources are automatically configured by the operator
+  # Prometheus is added as default datasource
+
+# Alertmanager configuration (disabled)
+alertmanager:
+  enabled: false
+
+prometheusOperator:
+  enabled: false
+

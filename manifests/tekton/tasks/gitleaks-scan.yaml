@@ -1,0 +1,55 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: gitleaks-scan
+  namespace: devops-lab-cicd
+spec:
+  description: |
+    Escanea código en busca de secretos y credenciales usando Gitleaks
+  params:
+    - name: REPO_PATH
+      description: Ruta al repositorio a escanear
+      default: "."
+      type: string
+    - name: REPORT_PATH
+      description: Ruta donde guardar el reporte
+      default: "gitleaks-report.json"
+      type: string
+  workspaces:
+    - name: source
+      description: Workspace que contiene el código fuente
+  steps:
+    - name: scan
+      image: docker.io/zricethezav/gitleaks:latest
+      workingDir: $(workspaces.source.path)
+      script: |
+        #!/bin/sh
+        set -e
+        
+        echo "🔍 Iniciando escaneo de secretos con Gitleaks..."
+        echo "Ruta: $(params.REPO_PATH)"
+        echo "Reporte: $(params.REPORT_PATH)"
+        
+        gitleaks detect \
+          --source $(params.REPO_PATH) \
+          --verbose \
+          --report-format json \
+          --report-path $(params.REPORT_PATH) \
+          --redact || EXIT_CODE=$?
+        
+        echo "📄 Contenido del reporte:"
+        if [ -f "$(params.REPORT_PATH)" ]; then
+          cat $(params.REPORT_PATH)
+        fi
+        
+        # Si se encontraron secretos, gitleaks retorna exit code 1
+        if [ "${EXIT_CODE:-0}" -eq 1 ]; then
+          echo "❌ Se encontraron secretos en el código"
+          exit 1
+        fi
+        
+        echo "✅ No se encontraron secretos en el código"
+      securityContext:
+        runAsNonRoot: false
+        runAsUser: 0
+

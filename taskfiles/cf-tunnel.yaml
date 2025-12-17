@@ -1,0 +1,26 @@
+version: '3'
+
+# ========================================
+# CLOUDFLARE TUNNEL
+# ========================================
+
+tasks:
+  cf-tunnel-install:
+    desc: 🔐 Crear Secret con token desde variable K8STOKEN
+    cmds:
+      - kubectl create namespace cf-tunnel || true
+      - |
+        if [ -z "$K8STOKEN" ]; then
+          echo "❌ Error: Variable K8STOKEN no está definida"
+          echo "Usa: export K8STOKEN='tu-token-aqui'"
+          exit 1
+        fi
+      - |
+        kubectl create secret generic cloudflared-token \
+          --from-literal=token=$K8STOKEN \
+          -n cf-tunnel \
+          --dry-run=client -o yaml | kubectl apply -f -
+      - echo "✓ Secret 'cloudflared-token' creado en namespace 'cf-tunnel'"
+      - kubectl apply -f manifests/cf-tunnel/cf-tunnel.yaml
+
+

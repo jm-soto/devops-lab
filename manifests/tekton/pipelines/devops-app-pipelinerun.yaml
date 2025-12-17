@@ -1,0 +1,31 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  generateName: clone-build-push-run-
+  namespace: devops-lab-cicd
+spec:
+  pipelineRef:
+    name: clone-build-push
+  taskRunSpecs:
+    - pipelineTaskName: deploy-staging
+      serviceAccountName: tekton-cicd-sa
+    - pipelineTaskName: deploy-pro
+      serviceAccountName: tekton-cicd-sa
+  workspaces:
+    - name: shared-data
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi
+    - name: docker-credentials
+      secret:
+        secretName: docker-credentials
+  params:
+    - name: repo-url
+      value: https://github.com/jm-soto/devops-lab
+    - name: image-reference
+      value: docker.io/tekiroz/devops-lab:latest
+

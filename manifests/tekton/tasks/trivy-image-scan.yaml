@@ -1,0 +1,59 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: trivy-image-scan
+  namespace: devops-lab-cicd
+spec:
+  description: |
+    Escanea una imagen Docker en busca de vulnerabilidades de seguridad
+  params:
+    - name: IMAGE_REFERENCE
+      description: Referencia completa de la imagen a escanear (incluyendo tag)
+      type: string
+    - name: SEVERITY
+      description: Niveles de severidad a reportar (UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL)
+      default: "HIGH,CRITICAL"
+      type: string
+    - name: EXIT_CODE
+      description: Exit code a retornar si se encuentran vulnerabilidades (0=no falla, 1=falla)
+      default: "1"
+      type: string
+  workspaces:
+    - name: source
+      description: Workspace para guardar reportes
+      optional: true
+  steps:
+    - name: scan-image
+      image: aquasec/trivy:0.68.2
+      script: |
+        #!/bin/sh
+        set -e
+        
+        echo "🔍 Escaneando imagen del registry: $(params.IMAGE_REFERENCE)"
+        echo "Nivel de severidad: $(params.SEVERITY)"
+        
+        trivy image \
+          --exit-code $(params.EXIT_CODE) \
+          --severity $(params.SEVERITY) \
+          --format json \
+          --output /tmp/trivy-report.json \
+          $(params.IMAGE_REFERENCE) || EXIT_CODE=$?
+        
+        echo "📄 Reporte de Trivy:"
+        cat /tmp/trivy-report.json || true
+        
+        # Copiar reporte al workspace si está disponible
+        if [ -d "$(workspaces.source.path)" ]; then
+          cp /tmp/trivy-report.json $(workspaces.source.path)/trivy-report.json || true
+        fi
+        
+        if [ "${EXIT_CODE:-0}" -eq 1 ]; then
+          echo "❌ Se encontraron vulnerabilidades críticas/altas en la imagen"
+          exit 1
+        fi
+        
+        echo "✅ Escaneo completado sin vulnerabilidades críticas/altas"
+      securityContext:
+        runAsNonRoot: false
+        runAsUser: 0
+

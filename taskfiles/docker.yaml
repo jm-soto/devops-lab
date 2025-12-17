@@ -1,0 +1,55 @@
+version: '3'
+
+# ========================================
+# TAREAS DE DOCKER
+# ========================================
+
+tasks:
+  build:
+    desc: 🐳 Construir imagen de la aplicación
+    cmds:
+      - docker build -t {{.IMAGE_NAME}} .
+
+  run:
+    desc: 🐳 Ejecutar aplicación en contenedor
+    cmds:
+      - docker run --rm -p 3000:3000
+        -e BACKGROUND_COLOR={{.BACKGROUND_COLOR | default .DEFAULT_BG_COLOR}}
+        -e APP_VERSION={{.APP_VERSION | default .DEFAULT_VERSION}}
+        --name {{.CONTAINER_NAME}}
+        {{.IMAGE_NAME}}
+
+  run-detached:
+    desc: 🐳 Ejecutar aplicación en background
+    cmds:
+      - docker run -d -p 3000:3000
+        -e BACKGROUND_COLOR={{.BACKGROUND_COLOR | default .DEFAULT_BG_COLOR}}
+        -e APP_VERSION={{.APP_VERSION | default .DEFAULT_VERSION}}
+        --name {{.CONTAINER_NAME}}
+        {{.IMAGE_NAME}}
+
+  dev:
+    desc: 🐳 Ejecutar en modo desarrollo con volúmenes
+    cmds:
+      - docker run --rm -it -p 3000:3000
+        -v {{.PWD}}/app:/app
+        -w /app
+        -e BACKGROUND_COLOR={{.BACKGROUND_COLOR | default .DEFAULT_BG_COLOR}}
+        -e APP_VERSION={{.APP_VERSION | default .DEFAULT_VERSION}}
+        node:alpine
+        sh -c "npm install && npm start"
+
+  stop:
+    desc: 🐳 Detener contenedor
+    cmds:
+      - docker stop {{.CONTAINER_NAME}} 2>/dev/null || true
+      - docker rm {{.CONTAINER_NAME}} 2>/dev/null || true
+
+  clean:
+    desc: 🐳 Limpiar contenedores e imágenes
+    cmds:
+      - docker stop {{.CONTAINER_NAME}} 2>/dev/null || true
+      - docker rm {{.CONTAINER_NAME}} 2>/dev/null || true
+      - docker rmi {{.IMAGE_NAME}} 2>/dev/null || true
+      - echo "✓ Limpieza completada"
+

@@ -1,0 +1,22 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: github-pr-binding
+  namespace: devops-lab-cicd
+spec:
+  params:
+    - name: git-repository-url
+      value: $(body.repository.clone_url)
+    - name: git-revision
+      value: $(body.pull_request.head.sha)
+    - name: git-ref
+      value: $(body.pull_request.head.ref)
+    - name: pr-number
+      value: $(body.number)
+    - name: pr-title
+      value: $(body.pull_request.title)
+    - name: pr-action
+      value: $(body.action)
+    - name: pr-author
+      value: $(body.pull_request.user.login)
+

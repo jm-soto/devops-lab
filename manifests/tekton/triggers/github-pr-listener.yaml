@@ -1,0 +1,32 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: EventListener
+metadata:
+  name: github-pr-listener
+  namespace: devops-lab-cicd
+spec:
+  serviceAccountName: tekton-cicd-sa
+  triggers:
+    - name: github-pr-trigger
+      interceptors:
+        # Valida que el evento sea de GitHub
+        - ref:
+            name: "github"
+          params:
+            - name: "secretRef"
+              value:
+                secretName: github-webhook-secret
+                secretKey: secret
+            - name: "eventTypes"
+              value: ["pull_request"]
+        # Filtra solo eventos de PR abiertos, sincronizados o reabiertos
+        - ref:
+            name: "cel"
+          params:
+            - name: "filter"
+              value: >
+                body.action in ['opened', 'synchronize', 'reopened']
+      bindings:
+        - ref: github-pr-binding
+      template:
+        ref: pr-pipeline-template
+

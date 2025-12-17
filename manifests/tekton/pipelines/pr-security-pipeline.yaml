@@ -1,0 +1,130 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: pr-security-pipeline
+  namespace: devops-lab-cicd
+spec:
+  description: |
+    Pipeline para Pull Requests que escanea secretos, construye y sube imagen
+    con tag PR, y escanea vulnerabilidades
+  params:
+    - name: repo-url
+      type: string
+      description: The GitHub repository URL
+    - name: git-revision
+      type: string
+      description: Git commit SHA
+      default: ""
+    - name: pr-number
+      type: string
+      description: Pull request number
+    - name: image-reference-base
+      type: string
+      description: Base image reference (sin tag)
+      default: docker.io/tekiroz/devops-lab
+    - name: pipeline-run-url
+      type: string
+      description: URL del PipelineRun en Tekton Dashboard
+      default: ""
+  workspaces:
+    - name: shared-data
+      description: Workspace compartido para código y reportes
+    - name: docker-credentials
+      description: Credenciales para el registry de Docker
+  tasks:
+    - name: update-status-pending
+      taskRef:
+        name: github-pr-status
+      params:
+        - name: REPO_URL
+          value: $(params.repo-url)
+        - name: GIT_SHA
+          value: $(params.git-revision)
+        - name: STATE
+          value: "pending"
+        - name: DESCRIPTION
+          value: "Pipeline de seguridad ejecutándose"
+        - name: TARGET_URL
+          value: $(params.pipeline-run-url)
+    
+    - name: fetch-source
+      runAfter:
+        - update-status-pending
+      taskRef:
+        name: git-clone
+      workspaces:
+        - name: output
+          workspace: shared-data
+      params:
+        - name: url
+          value: $(params.repo-url)
+        - name: revision
+          value: $(params.git-revision)
+        - name: deleteExisting
+          value: "true"
+    
+    - name: scan-secrets
+      runAfter:
+        - fetch-source
+      taskRef:
+        name: gitleaks-scan
+      workspaces:
+        - name: source
+          workspace: shared-data
+      params:
+        - name: REPO_PATH
+          value: "."
+        - name: REPORT_PATH
+          value: "gitleaks-report.json"
+    
+    - name: build-push-image
+      runAfter:
+        - scan-secrets
+      taskRef:
+        name: kaniko
+      workspaces:
+        - name: source
+          workspace: shared-data
+        - name: dockerconfig
+          workspace: docker-credentials
+      params:
+        - name: IMAGE
+          value: $(params.image-reference-base):pr-$(params.pr-number)-$(params.git-revision)
+        - name: CONTEXT
+          value: ./
+        - name: DOCKERFILE
+          value: ./Dockerfile
+    
+    - name: scan-vulnerabilities
+      runAfter:
+        - build-push-image
+      taskRef:
+        name: trivy-image-scan
+      workspaces:
+        - name: source
+          workspace: shared-data
+      params:
+        - name: IMAGE_REFERENCE
+          value: $(params.image-reference-base):pr-$(params.pr-number)-$(params.git-revision)
+        - name: SEVERITY
+          value: "HIGH,CRITICAL"
+        - name: EXIT_CODE
+          value: "0"
+    
+  finally:
+    - name: update-status-final
+      taskRef:
+        name: github-pr-status-update-final
+      workspaces:
+        - name: source
+          workspace: shared-data
+      params:
+        - name: REPO_URL
+          value: $(params.repo-url)
+        - name: GIT_SHA
+          value: $(params.git-revision)
+        - name: TARGET_URL
+          value: $(params.pipeline-run-url)
+        - name: PR_NUMBER
+          value: $(params.pr-number)
+

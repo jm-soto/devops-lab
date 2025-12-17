@@ -1,0 +1,49 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: pr-pipeline-template
+  namespace: devops-lab-cicd
+spec:
+  params:
+    - name: git-repository-url
+      description: The git repository URL
+    - name: git-revision
+      description: The git revision (commit SHA)
+    - name: pr-number
+      description: Pull request number
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1
+      kind: PipelineRun
+      metadata:
+        generateName: pr-security-pipeline-run-
+        labels:
+          tekton.dev/pipeline: pr-security-pipeline
+          event: pull-request
+          pr-number: $(tt.params.pr-number)
+      spec:
+        pipelineRef:
+          name: pr-security-pipeline
+        workspaces:
+          - name: shared-data
+            volumeClaimTemplate:
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 1Gi
+          - name: docker-credentials
+            secret:
+              secretName: docker-credentials
+        params:
+          - name: repo-url
+            value: $(tt.params.git-repository-url)
+          - name: git-revision
+            value: $(tt.params.git-revision)
+          - name: pr-number
+            value: $(tt.params.pr-number)
+          - name: image-reference-base
+            value: docker.io/tekiroz/devops-lab
+          - name: pipeline-run-url
+            value: ""  # URL opcional del PipelineRun en Tekton Dashboard
+

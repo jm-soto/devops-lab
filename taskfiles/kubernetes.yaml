@@ -1,0 +1,45 @@
+version: '3'
+
+# ========================================
+# TAREAS DE KUBERNETES / MINIKUBE
+# ========================================
+
+vars:
+  METALLB_IP_RANGE: 192.168.49.10-192.168.49.50
+
+tasks:
+  start:
+    desc: ☸️  Iniciar cluster de Minikube
+    cmds:
+      - minikube start 
+        --cpus 4 
+        --memory 16384 
+        --driver docker
+        --profile devops-lab
+        --kubernetes-version stable
+        --addons metallb,metrics-server
+      #configure MetalLB
+      - |
+        kubectl patch configmap config -n metallb-system --type merge -p '{"data":{"config":"address-pools:\n- name: default\n  protocol: layer2\n  addresses:\n  - {{.METALLB_IP_RANGE}}\n"}}'
+      - echo "✓ Rango de IPs de MetalLB actualizado a {{.METALLB_IP_RANGE}}"
+      - echo "Verificando configuración:"
+      - kubectl get configmap config -n metallb-system -o jsonpath='{.data.config}'
+    status:
+      - minikube status --profile devops-lab 2>/dev/null | grep -q "Running"
+
+  stop:
+    desc: ☸️  Detener cluster de Minikube
+    cmds:
+      - minikube stop --profile devops-lab
+
+  delete:
+    desc: ☸️  Eliminar cluster de Minikube completamente
+    cmds:
+      - minikube delete --profile devops-lab
+
+  status:
+    desc: ☸️  Ver estado del cluster de Minikube
+    cmds:
+      - minikube status --profile devops-lab
+      - echo ""
+      - kubectl get nodes

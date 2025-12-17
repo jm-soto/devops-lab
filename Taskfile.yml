@@ -1,0 +1,37 @@
+version: '3'
+
+# ========================================
+# VARIABLES GLOBALES
+# ========================================
+
+vars:
+  IMAGE_NAME: devops-lab-app
+  CONTAINER_NAME: devops-lab-app
+  DEFAULT_BG_COLOR: "white" # #ffffff | white | green | red | blue
+  DEFAULT_VERSION: v1.0.0
+
+# ========================================
+# MÓDULOS
+# ========================================
+
+includes:
+  docker:
+    taskfile: ./taskfiles/docker.yaml
+  minikube:
+    taskfile: ./taskfiles/kubernetes.yaml
+  tekton:
+    taskfile: ./taskfiles/tekton.yaml
+  cf:
+    taskfile: ./taskfiles/cf-tunnel.yaml
+  helm:
+    taskfile: ./taskfiles/helm.yaml
+
+# ========================================
+# TAREAS PRINCIPALES
+# ========================================
+
+tasks:
+  default:
+    desc: 📋 Mostrar lista de tareas disponibles
+    cmds:
+      - task --list

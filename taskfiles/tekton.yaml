@@ -1,0 +1,104 @@
+version: '3'
+
+# ========================================
+# INSTALACIÓN DE APLICACIONES
+# ========================================
+
+vars:
+  TEKTON_VERSION: v0.70.0
+  TEKTON_DASHBOARD_VERSION: v0.64.0
+  TEKTON_TRIGGERS_VERSION: v0.30.0
+
+tasks:
+  install:
+    desc: 🔧 Instalar Tekton completo (Pipelines + Dashboard + Triggers)
+    cmds:
+      - echo "Instalando Tekton Pipelines {{.TEKTON_VERSION}}..."
+      - kubectl apply --filename https://storage.googleapis.com/tekton-releases/pipeline/previous/{{.TEKTON_VERSION}}/release.yaml
+      - echo "⏳ Esperando a que Tekton Pipelines esté listo..."
+      - kubectl wait --for=condition=ready pod -l app=tekton-pipelines-controller -n tekton-pipelines --timeout=300s
+      - echo "Instalando Tekton Dashboard {{.TEKTON_DASHBOARD_VERSION}}..."
+      - kubectl apply --filename https://infra.tekton.dev/tekton-releases/dashboard/previous/{{.TEKTON_DASHBOARD_VERSION}}/release.yaml
+      - echo "Instalando Tekton Triggers {{.TEKTON_TRIGGERS_VERSION}}..."
+      - kubectl apply --filename https://storage.googleapis.com/tekton-releases/triggers/latest/release.yaml
+      - kubectl apply --filename https://storage.googleapis.com/tekton-releases/triggers/latest/interceptors.yaml
+      - echo "⏳ esperando a que tekton triggers esté listo..."
+      - kubectl wait --for=condition=ready pod -l app=tekton-triggers-controller -n tekton-pipelines --timeout=300s
+      - echo "✓ Tekton instalado correctamente (Pipelines + Dashboard + Triggers)"
+
+  setup:
+    desc: 🔧 Configurar entorno DevOps App
+    cmds:
+      - echo "Creando namespaces..."
+      - kubectl create namespace devops-lab-cicd --dry-run=client -o yaml | kubectl apply -f -
+      - kubectl create namespace devops-lab-staging --dry-run=client -o yaml | kubectl apply -f -
+      - kubectl create namespace devops-lab-pro --dry-run=client -o yaml | kubectl apply -f -
+      - echo "Instalando RBAC..."
+      - kubectl apply -f manifests/tekton/rbac/cicd-sa.yaml
+      - echo "Instalando tasks..."
+      - kubectl apply -f https://raw.githubusercontent.com/tektoncd/catalog/main/task/git-clone/0.9/git-clone.yaml -n devops-lab-cicd
+      - kubectl apply -f https://raw.githubusercontent.com/tektoncd/catalog/main/task/kaniko/0.6/kaniko.yaml -n devops-lab-cicd
+      - kubectl apply -f https://raw.githubusercontent.com/tektoncd/catalog/main/task/gitleaks/0.1/gitleaks.yaml -n devops-lab-cicd
+      - kubectl apply -f manifests/tekton/tasks/helm-deploy.yaml -n devops-lab-cicd
+      - kubectl apply -f manifests/tekton/tasks/trivy-image-scan.yaml -n devops-lab-cicd
+      - kubectl apply -f manifests/tekton/tasks/gitleaks-scan.yaml -n devops-lab-cicd
+      - kubectl apply -f manifests/tekton/tasks/github-pr-status.yaml -n devops-lab-cicd
+      - kubectl apply -f manifests/tekton/tasks/github-pr-status-update-final.yaml -n devops-lab-cicd
+      - kubectl apply -f manifests/tekton/tasks/github-pr-comment.yaml -n devops-lab-cicd
+      - echo "Instalando pipelines..."
+      - kubectl apply -f manifests/tekton/pipelines/devops-app-pipeline.yaml -n devops-lab-cicd
+      - kubectl apply -f manifests/tekton/pipelines/pr-security-pipeline.yaml -n devops-lab-cicd
+      - echo "Instalando triggers..."
+      - kubectl apply -f manifests/tekton/triggers/ -n devops-lab-cicd
+      - |
+        if [ ! -f ~/.docker/config.json ]; then
+          echo "❌ Error: No se encuentra ~/.docker/config.json"
+          echo "💡 Ejecuta 'docker login' primero para crear el archivo"
+          exit 1
+        fi
+        echo "Creando secreto de DockerHub..."
+        kubectl delete secret docker-credentials --namespace=devops-lab-cicd --ignore-not-found=true
+        kubectl create secret generic docker-credentials \
+          --from-file=config.json=$HOME/.docker/config.json \
+          --namespace=devops-lab-cicd
+      - |
+        if [ -z "${GHWEBHOOK}" ]; then
+          echo "⚠️  Advertencia: Variable de entorno GHWEBHOOK no definida"
+        else
+          echo "Creando secreto de GitHub webhook..."
+          kubectl delete secret github-webhook-secret --namespace=devops-lab-cicd --ignore-not-found=true
+          kubectl create secret generic github-webhook-secret \
+            --from-literal=secret="${GHWEBHOOK}" \
+            --namespace=devops-lab-cicd
+          echo "✅ Secret de GitHub webhook creado"
+        fi
+      - |
+        if [ -z "${GHTOKEN}" ]; then
+          echo "⚠️  Advertencia: Variable de entorno GHTOKEN no definida"
+        else
+          echo "Creando secreto de GitHub token..."
+          kubectl delete secret github-token --namespace=devops-lab-cicd --ignore-not-found=true
+          kubectl create secret generic github-token \
+            --from-literal=token="${GHTOKEN}" \
+            --namespace=devops-lab-cicd
+          echo "✅ Secret de GitHub token creado"
+        fi
+      - echo "✓ Entorno configurado en namespace devops-lab-cicd"
+
+  run:
+    desc: 🔧 CD DevOps App Staging (clonar, construir y subir imagen)
+    cmds:
+      - kubectl apply -f manifests/tekton/pipelines/devops-app-pipeline.yaml -n devops-lab-cicd
+      - kubectl create -f manifests/tekton/pipelines/devops-app-pipelinerun.yaml -n devops-lab-cicd
+      - echo "✓ PipelineRun creado en namespace devops-lab-cicd"
+
+  uninstall:
+    desc: 🔧 Desinstalar Tekton completo (Pipelines + Dashboard + Triggers)
+    cmds:
+      - echo "Desinstalando Tekton Dashboard..."
+      - kubectl delete --filename https://storage.googleapis.com/tekton-releases/triggers/latest/release.yaml --ignore-not-found=true
+      - kubectl delete --filename https://storage.googleapis.com/tekton-releases/triggers/latest/interceptors.yaml --ignore-not-found=true
+      - kubectl delete --filename https://github.com/tektoncd/dashboard/releases/download/{{.TEKTON_DASHBOARD_VERSION}}/release.yaml --ignore-not-found=true
+      - echo "Desinstalando Tekton Pipelines..."
+      - kubectl delete --filename https://storage.googleapis.com/tekton-releases/pipeline/previous/{{.TEKTON_VERSION}}/release.yaml --ignore-not-found=true
+      - echo "✓ Tekton desinstalado"
