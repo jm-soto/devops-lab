@@ -22,5 +22,3 @@ tasks:
           --dry-run=client -o yaml | kubectl apply -f -
       - echo "✓ Secret 'cloudflared-token' creado en namespace 'cf-tunnel'"
       - kubectl apply -f manifests/cf-tunnel/cf-tunnel.yaml
-
-
