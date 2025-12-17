@@ -1,3 +1,9 @@
+## 0.8.0 (2025-12-17)
+
+### Feat
+
+- **helm-deploy**: add APP_VERSION environment variable to helm command
+
 ## 0.7.0 (2025-12-17)
 
 ### Feat
