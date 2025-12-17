@@ -1,3 +1,9 @@
+## 0.7.0 (2025-12-17)
+
+### Feat
+
+- **test-cd**: remove unnecessary blank lines for cleaner YAML structure
+
 ## 0.6.0 (2025-12-17)
 
 ### Feat
