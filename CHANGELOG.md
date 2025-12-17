@@ -1,3 +1,9 @@
+## 0.8.1 (2025-12-17)
+
+### Fix
+
+- **helm**: ensure consistent output message for uninstall task
+
 ## 0.8.0 (2025-12-17)
 
 ### Feat
