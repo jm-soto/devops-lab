@@ -60,15 +60,17 @@ spec:
         git fetch --tags
         git fetch origin $(params.BRANCH)
         echo "🔄 Ejecutando commitizen bump con changelog..."
-        cz bump --yes --changelog || EXIT_CODE=$?
-        if [ "${EXIT_CODE:-0}" -eq 2 ]; then
-          echo "⚠️  No hay commits elegibles para bump"
-          exit 0
-        fi
+        CZ_OUTPUT=$(cz bump --yes --changelog 2>&1) || EXIT_CODE=$?
         if [ "${EXIT_CODE:-0}" -ne 0 ]; then
+          echo "$CZ_OUTPUT"
+          if echo "$CZ_OUTPUT" | grep -q "NO_COMMITS_TO_BUMP"; then
+            echo "ℹ️  No hay commits elegibles para bump (commit de tipo ci u otro tipo no versionable)"
+            exit 0
+          fi
           echo "❌ Error en cz bump"
           exit ${EXIT_CODE}
         fi
+        echo "$CZ_OUTPUT"
         echo "📤 Haciendo push de commits y tags..."
         git push origin $(params.BRANCH)
         LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
