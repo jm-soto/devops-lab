@@ -1,0 +1,12 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: github-main-push-binding
+  namespace: devops-lab-cicd
+spec:
+  params:
+    - name: git-repository-url
+      value: $(body.repository.clone_url)
+    - name: git-revision
+      value: $(body.after)
+

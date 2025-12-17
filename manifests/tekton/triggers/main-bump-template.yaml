@@ -1,0 +1,36 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: main-bump-template
+  namespace: devops-lab-cicd
+spec:
+  params:
+    - name: git-repository-url
+    - name: git-revision
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1
+      kind: PipelineRun
+      metadata:
+        generateName: main-bump-pipeline-run-
+        labels:
+          tekton.dev/pipeline: main-bump-pipeline
+          event: push
+          branch: main
+      spec:
+        pipelineRef:
+          name: main-bump-pipeline
+        workspaces:
+          - name: source
+            volumeClaimTemplate:
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 1Gi
+        params:
+          - name: repo-url
+            value: $(tt.params.git-repository-url)
+          - name: git-revision
+            value: $(tt.params.git-revision)
+
