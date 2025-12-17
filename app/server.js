@@ -88,6 +88,10 @@ const APP_VERSION = process.env.APP_VERSION || 'v1.0.0';
 const HOST_IP = getHostIP();
 const HOSTNAME = os.hostname();
 
+// ⚠️ LEAK DE PRUEBA - ELIMINAR DESPUÉS DE LA PRUEBA
+const AWS_ACCESS_KEY_ID = 'AKIAIOSFODNN7EXAMPLE';
+const AWS_SECRET_ACCESS_KEY = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY';
+
 // Logger estructurado en JSON
 function log(level, message, metadata = {}) {
   const logEntry = {
