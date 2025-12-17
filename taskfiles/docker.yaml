@@ -52,4 +52,3 @@ tasks:
       - docker rm {{.CONTAINER_NAME}} 2>/dev/null || true
       - docker rmi {{.IMAGE_NAME}} 2>/dev/null || true
       - echo "✓ Limpieza completada"
-
