@@ -75,6 +75,8 @@ spec:
           value: devops-lab-staging
         - name: VALUES_FILE
           value: cd/staging/values.yaml
+        - name: IMAGE_REFERENCE
+          value: $(params.image-reference)
     - name: deploy-pro
       runAfter:
         - deploy-staging
@@ -90,3 +92,5 @@ spec:
           value: devops-lab-pro
         - name: VALUES_FILE
           value: cd/pro/values.yaml
+        - name: IMAGE_REFERENCE
+          value: $(params.image-reference)
