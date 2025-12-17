@@ -22,7 +22,7 @@ spec:
       default: helm/devops-lab-app
     - name: IMAGE_REFERENCE
       type: string
-      description: Full image reference with tag (ej: docker.io/user/repo:v1.0.0)
+      description: "Full image reference with tag (ej: docker.io/user/repo:v1.0.0)"
       default: ""
   steps:
     - name: helm-upgrade-install
