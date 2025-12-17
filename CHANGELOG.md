@@ -1,3 +1,9 @@
+## 0.6.0 (2025-12-17)
+
+### Feat
+
+- **helm-deploy**: simplify helm command execution and improve readability
+
 ## 0.5.0 (2025-12-17)
 
 ### Feat
