@@ -1,3 +1,9 @@
+## 0.10.0 (2025-12-18)
+
+### Feat
+
+- **helm-pro**: update color background
+
 ## 0.9.0 (2025-12-18)
 
 ### Feat
