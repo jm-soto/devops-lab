@@ -17,7 +17,7 @@ const ALLOWED_COLORS = {
 // Función para validar y normalizar color
 function validateAndNormalizeColor(color) {
   if (!color) {
-    return ALLOWED_COLORS['white']; // default
+    return ALLOWED_COLORS['red']; // default
   }
   
   const colorLower = color.toLowerCase();
