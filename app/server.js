@@ -5,11 +5,11 @@ const os = require('os');
 // Colores permitidos
 const ALLOWED_COLORS = {
   'green': '#00ff00',
-  'red': '#ff0000', // #ff0000',
+  'red': '#ff9999', // rojo pastel
   'blue': '#0000ff',
   'white': '#ffffff',
   'verde': '#00ff00',    // alias en español
-  'rojo': '#ff0000',     // alias en español
+  'rojo': '#ff9999',     // alias en español (rojo pastel)
   'azul': '#0000ff',     // alias en español
   'blanco': '#ffffff'    // alias en español
 };
@@ -53,7 +53,7 @@ function validateAndNormalizeColor(color) {
 function getColorName(hexColor) {
   const colorMap = {
     '#00ff00': 'green',
-    '#ff0000': 'red',
+    '#ff9999': 'red',
     '#0000ff': 'blue',
     '#ffffff': 'white'
   };
@@ -441,7 +441,7 @@ app.get('/colors', (req, res) => {
     current_color: BACKGROUND_COLOR,
     hex_values: {
       'green': '#00ff00',
-      'red': '#ff0000',
+      'red': '#ff9999',
       'blue': '#0000ff',
       'white': '#ffffff'
     },
