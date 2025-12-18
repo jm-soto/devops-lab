@@ -1,3 +1,10 @@
+## 0.13.0 (2025-12-18)
+
+### Feat
+
+- **monitoring**: enable prometheusOperator in values.yaml
+- **monitoring**: enable prometheusOperator in values.yaml
+
 ## 0.12.0 (2025-12-18)
 
 ## 0.11.0 (2025-12-18)
