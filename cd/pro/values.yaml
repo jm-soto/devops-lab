@@ -20,7 +20,7 @@ resources:
     memory: 200Mi
 
 env:
-  BACKGROUND_COLOR: white
+  BACKGROUND_COLOR: rojo
 
 namespace:
   create: true
