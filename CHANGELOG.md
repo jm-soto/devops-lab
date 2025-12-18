@@ -1,3 +1,10 @@
+## 0.14.0 (2025-12-18)
+
+### Feat
+
+- **server**: update red color hex values to a more intense shade
+- **server**: update red color hex values to a more intense shade
+
 ## 0.13.0 (2025-12-18)
 
 ### Feat
