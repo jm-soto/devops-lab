@@ -18,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 0,
+  "id": 32,
   "links": [],
   "panels": [
     {
@@ -113,8 +113,10 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(http_requests_total{kubernetes_namespace=\"$namespace\",route!=\"/metrics\"}[5m])) by (route, status_code)",
+          "editorMode": "code",
+          "expr": "sum(rate(http_requests_total{kubernetes_namespace=\"$namespace\",route!~\"/metrics|/health\"}[5m])) by (route, status_code)",
           "legendFormat": "{{route}} - {{status_code}}",
+          "range": true,
           "refId": "A"
         }
       ],
@@ -377,7 +379,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{kubernetes_namespace=\"$namespace\",route!=\"/metrics\"}[5m])) by (le))",
+          "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{kubernetes_namespace=\"$namespace\",route!~\"/metrics|/health\"}[5m])) by (le))",
           "legendFormat": "P50",
           "range": true,
           "refId": "A"
@@ -388,7 +390,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{kubernetes_namespace=\"$namespace\",route!=\"/metrics\"}[5m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{kubernetes_namespace=\"$namespace\",route!~\"/metrics|/health\"}[5m])) by (le))",
           "legendFormat": "P95",
           "range": true,
           "refId": "B"
@@ -399,7 +401,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{kubernetes_namespace=\"$namespace\",route!=\"/metrics\"}[5m])) by (le))",
+          "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{kubernetes_namespace=\"$namespace\",route!~\"/metrics|/health\"}[5m])) by (le))",
           "legendFormat": "P99",
           "range": true,
           "refId": "C"
@@ -501,8 +503,10 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(http_request_duration_seconds_sum{kubernetes_namespace=\"$namespace\",route!=\"/metrics\"}[5m])) by (route) / sum(rate(http_request_duration_seconds_count{kubernetes_namespace=\"$namespace\",route!=\"/metrics\"}[5m])) by (route)",
+          "editorMode": "code",
+          "expr": "sum(rate(http_request_duration_seconds_sum{kubernetes_namespace=\"$namespace\",route!~\"/metrics|/health\"}[5m])) by (route) / sum(rate(http_request_duration_seconds_count{kubernetes_namespace=\"$namespace\",route!~\"/metrics|/health\"}[5m])) by (route)",
           "legendFormat": "Avg - {{route}}",
+          "range": true,
           "refId": "A"
         }
       ],
@@ -573,8 +577,10 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(http_requests_total{kubernetes_namespace=\"$namespace\",route!=\"/metrics\"}[5m])) by (route)",
+          "editorMode": "code",
+          "expr": "sum(rate(http_requests_total{kubernetes_namespace=\"$namespace\",route!~\"/metrics|/health\"}[5m])) by (route)",
           "legendFormat": "{{route}}",
+          "range": true,
           "refId": "A"
         }
       ],
@@ -727,7 +733,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(http_temporary_color_requests_total{kubernetes_namespace=\"$namespace\"}) by (color_requested)",
+          "expr": "sum(http_temporary_color_requests_total{kubernetes_namespace=\"$namespace\",route!~\"/metrics|/health\"}) by (color_requested)",
           "format": "time_series",
           "instant": true,
           "legendFormat": "{{color_requested}}",
@@ -741,7 +747,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(http_temporary_color_requests_total{kubernetes_namespace=\"$namespace\"}) by (color)",
+          "expr": "sum(http_temporary_color_requests_total{kubernetes_namespace=\"$namespace\",route!~\"/metrics|/health\"}) by (color)",
           "hide": false,
           "instant": true,
           "legendFormat": "default color",
@@ -939,7 +945,7 @@
     }
   ],
   "preload": false,
-  "refresh": "5s",
+  "refresh": "30s",
   "schemaVersion": 42,
   "tags": [
     "devops-lab",
@@ -974,12 +980,12 @@
     ]
   },
   "time": {
-    "from": "now-30m",
+    "from": "now-1h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "browser",
   "title": "DevOps Lab App - Metrics Dashboard",
   "uid": "124eb4db-5405-44e0-bec2-370ce95dd4cc",
-  "version": 7
+  "version": 10
 }
