@@ -1,3 +1,9 @@
+## 0.9.0 (2025-12-18)
+
+### Feat
+
+- **change-app-color**: change app color from white to red
+
 ## 0.8.1 (2025-12-17)
 
 ### Fix
