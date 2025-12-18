@@ -97,5 +97,5 @@ alertmanager:
   enabled: false
 
 prometheusOperator:
-  enabled: false
+  enabled: true
 
